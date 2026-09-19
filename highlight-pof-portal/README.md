@@ -1,30 +1,36 @@
 # Highlight Consulting Services Limited — Proof of Funds Portal
 
-A responsive React/Vite UI prototype based on the requested customer and admin portal design.
+A React/Vite customer and admin portal for Proof of Funds applications, backed by the real API in [`../server`](../server).
 
 ## Included screens
 - Public landing page
-- Customer dashboard
-- Multi-step application flow
-- Document upload UI
-- Review & payment UI
-- Application list/search UI
-- Application timeline/tracking
-- Admin dashboard
-- Public document verification UI
+- Customer signup/login (real accounts, hashed passwords)
+- Multi-step application flow (saved to the database)
+- Document upload (stored server-side, access-controlled)
+- Application list/search, tracking timeline
+- Admin dashboard, applications list, and status updates
+- Public document verification (only shows approved/completed applications)
 
 ## Run locally
 
-Requirements: Node.js 18+
+Requirements: Node.js 18+, and the API in `../server` running (see its README for database setup).
 
 ```bash
 npm install
+cp .env.example .env   # set VITE_API_URL to your API's URL
 npm run dev
 ```
 
-Then open the local Vite URL shown in the terminal.
+Then open the local Vite URL shown in the terminal. Create an account through the UI; there is no seeded/demo data — everything you see comes from what you submit.
 
-## Demo navigation
-The prototype uses in-app navigation without a backend. From the browser you can use the UI to move between the customer flow, application tracking, admin dashboard, and verification page.
+## Build & deploy
 
-For a production system, connect the UI to a secure backend/database, payment provider, private document storage, authentication, role-based access control, audit logs, and legitimate document-verification records. Do not use the demo verification data to represent real financial capacity.
+```bash
+npm run build
+```
+
+This produces a `dist/` folder built with a relative base path, so it can be deployed under any subpath (for example, copy its contents into a `pof/` folder alongside the main site so `services.html`'s "Get Funds now" button, linking to `pof/`, resolves correctly). Set `VITE_API_URL` (via `.env` before building) to the deployed API's public URL.
+
+## Payments
+
+The application review step currently does not collect payment — that integration (Paystack/Flutterwave) is intentionally left as a follow-up once live merchant keys are available.

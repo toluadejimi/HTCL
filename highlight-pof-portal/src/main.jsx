@@ -1,66 +1,85 @@
-import React, {useState} from 'react';
-import {createRoot} from 'react-dom/client';
+import React, { useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import {
   LayoutDashboard, FileText, CreditCard, UserRound, LifeBuoy, LogOut, Menu,
   CheckCircle2, Clock3, Upload, ChevronRight, ShieldCheck, Search,
-  Eye, Download, Users, Settings, BarChart3, Bell, Pencil, Globe2,
-  FileCheck2, ChevronDown
+  Users, Settings, BarChart3, Bell, Pencil, Globe2,
+  FileCheck2, ChevronDown, AlertCircle
 } from 'lucide-react';
 import './styles.css';
+import { api } from './api.js';
+import { AuthProvider, useAuth, initials } from './auth-context.jsx';
 
-const apps = [
-  {ref:'HCS-2026-000184', name:'Tolu Adejimi', email:'tolu@example.com', phone:'+234 801 234 5678', amount:'USD 100,000', purpose:'Study Abroad', destination:'Canada / University of Toronto', status:'Under Review', date:'13 Sep 2026'}
-];
-const steps = ['Personal info', 'Application Details', 'Documents', 'Review & Pay'];
+const STEP_TITLES = ['Personal info', 'Application Details', 'Documents', 'Review & Pay'];
+const PURPOSES = ['Study Abroad', 'Immigration', 'Business', 'Travel', 'Medical'];
+const STATUS_LABELS = {
+  submitted: 'Submitted',
+  under_review: 'Under Review',
+  needs_information: 'Needs Information',
+  processing: 'Processing',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  completed: 'Completed'
+};
 
-function Logo({small}) {
+function Logo({ small }) {
   return <div className={small ? 'logo sm' : 'logo'}>H</div>;
 }
 
-function Brand({light}) {
+function Brand({ light }) {
   return (
-    <div className="brand" style={light ? {color:'#fff'} : undefined}>
+    <div className="brand" style={light ? { color: '#fff' } : undefined}>
       <Logo />
       <div>
         <strong>Highlight Consulting</strong>
-        <span style={light ? {color:'#9eb0c8'} : undefined}>Services Limited</span>
+        <span style={light ? { color: '#9eb0c8' } : undefined}>Services Limited</span>
       </div>
     </div>
   );
 }
 
-function Status({children}) {
-  const cls = children.toLowerCase().replaceAll(' ', '-');
-  return <span className={'status ' + cls}><i /> {children}</span>;
+function Status({ children }) {
+  const label = STATUS_LABELS[children] || children;
+  const cls = label.toLowerCase().replaceAll(' ', '-');
+  return <span className={'status ' + cls}><i /> {label}</span>;
 }
 
-function Field({label, value, placeholder, wide, textarea, type='text', onChange, options}) {
+function ErrorBanner({ message }) {
+  if (!message) return null;
+  return <div className="form-error"><AlertCircle size={16} /><span>{message}</span></div>;
+}
+
+function EmptyState({ text }) {
+  return <div className="empty-state">{text}</div>;
+}
+
+function Field({ label, value, placeholder, wide, textarea, type = 'text', onChange, options, required }) {
   return (
     <label className={wide ? 'field wide' : 'field'}>
       <span>{label}</span>
       {textarea ? (
-        <textarea placeholder={placeholder} defaultValue={value} onChange={onChange} />
+        <textarea placeholder={placeholder} value={value ?? ''} onChange={onChange} required={required} />
       ) : options ? (
-        <select defaultValue={value || ''} onChange={onChange}>
-          {!value && placeholder && <option value="">{placeholder}</option>}
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
+        <select value={value || ''} onChange={onChange} required={required}>
+          {placeholder && <option value="">{placeholder}</option>}
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       ) : (
-        <input type={type} defaultValue={value || ''} placeholder={placeholder} onChange={onChange} />
+        <input type={type} value={value ?? ''} placeholder={placeholder} onChange={onChange} required={required} />
       )}
     </label>
   );
 }
 
-function PublicHeader({page, setPage}) {
+function PublicHeader({ page, setPage }) {
   const [open, setOpen] = useState(false);
-  const links = [['home','Home'],['about','About'],['services','Services'],['faq','FAQ'],['contact','Contact']];
+  const links = [['home', 'Home'], ['about', 'About'], ['services', 'Services'], ['faq', 'FAQ'], ['contact', 'Contact']];
   return (
     <header className="public-header">
       <button onClick={() => setPage('home')}><Brand /></button>
       <nav>
         {links.map(([id, label]) => (
-          <button key={id} className={page===id ? 'active' : ''} onClick={() => setPage(id)}>{label}</button>
+          <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}>{label}</button>
         ))}
       </nav>
       <div className="header-actions">
@@ -72,7 +91,7 @@ function PublicHeader({page, setPage}) {
   );
 }
 
-function Footer({setPage}) {
+function Footer({ setPage }) {
   return (
     <footer className="footer">
       <div className="footer-grid">
@@ -95,18 +114,17 @@ function Footer({setPage}) {
         <div>
           <h4>Support</h4>
           <button onClick={() => setPage('faq')}>FAQ</button>
-          <button onClick={() => setPage('admin')}>Admin access</button>
+          <button onClick={() => setPage('login')}>Admin access</button>
         </div>
       </div>
       <div className="footer-bottom">
         <span>© 2026 Highlight Consulting Services Limited</span>
-        <span>Demo portal — not a live financial product</span>
       </div>
     </footer>
   );
 }
 
-function PublicShell({page, setPage, children}) {
+function PublicShell({ page, setPage, children }) {
   return <>
     <PublicHeader page={page} setPage={setPage} />
     {children}
@@ -114,7 +132,7 @@ function PublicShell({page, setPage, children}) {
   </>;
 }
 
-function Home({setPage}) {
+function Home({ setPage }) {
   return (
     <>
       <section className="hero">
@@ -127,19 +145,13 @@ function Home({setPage}) {
           </div>
         </div>
         <div className="hero-media">
-          <img src="/images/hero-building.png" alt="Glass office tower at twilight" />
+          <img src="images/hero-building.png" alt="Glass office tower at twilight" />
           <div className="hero-cards">
             <div className="glass-card"><div className="icon"><ShieldCheck size={18} /></div><div><b>Secure Application</b><span>Your information is protected</span></div></div>
             <div className="glass-card"><div className="icon"><Clock3 size={18} /></div><div><b>Track in Real Time</b><span>Get updates at every stage</span></div></div>
             <div className="glass-card"><div className="icon"><LifeBuoy size={18} /></div><div><b>Expert Support</b><span>We're here to help</span></div></div>
           </div>
         </div>
-      </section>
-      <section className="trust">
-        <div><b>500+</b><span>Applications Processed</span></div>
-        <div><b>98%</b><span>Customer Satisfaction</span></div>
-        <div><b>Fast</b><span>Turnaround Time</span></div>
-        <div><b>Trusted</b><span>By Individuals & Businesses</span></div>
       </section>
       <section className="section">
         <div className="section-head">
@@ -154,7 +166,7 @@ function Home({setPage}) {
       </section>
       <section className="section alt">
         <div className="split-media">
-          <img src="/images/about-office.png" alt="Highlight consulting office" />
+          <img src="images/about-office.png" alt="Highlight consulting office" />
           <div className="split-copy">
             <h2>Built for global opportunities</h2>
             <p>Students, families, and businesses use Highlight Consulting to present trusted financial documentation for study, immigration, and institutional requests.</p>
@@ -168,7 +180,7 @@ function Home({setPage}) {
         </div>
       </section>
       <section className="cta-band">
-        <img src="/images/skyline.png" alt="City skyline at dusk" />
+        <img src="images/skyline.png" alt="City skyline at dusk" />
         <div>
           <h2>Ready to start your application?</h2>
           <p>Create an account and submit your Proof of Funds request with guided steps and live tracking.</p>
@@ -179,31 +191,30 @@ function Home({setPage}) {
   );
 }
 
-function About({setPage}) {
+function About({ setPage }) {
   return (
     <section className="section">
       <div className="split-media reverse">
         <div className="split-copy">
           <h2>About Highlight Consulting</h2>
           <p>Highlight Consulting Services Limited helps individuals and organisations prepare, submit, and track Proof of Funds documentation with a clear, professional process.</p>
-          <p>This portal is a working prototype of the customer and admin experience: application, review, payment, and public verification.</p>
           <button className="btn primary" onClick={() => setPage('signup')}>Start an application</button>
         </div>
-        <img src="/images/about-office.png" alt="Consulting office interior" />
+        <img src="images/about-office.png" alt="Consulting office interior" />
       </div>
     </section>
   );
 }
 
-function Services({setPage}) {
+function Services({ setPage }) {
   return (
     <section className="section">
       <div className="section-head">
         <h2>Services</h2>
         <p>Everything you need to request, manage, and verify Proof of Funds documents.</p>
       </div>
-      <div className="split-media" style={{marginBottom:48}}>
-        <img src="/images/services-documents.png" alt="Financial documents on a desk" />
+      <div className="split-media" style={{ marginBottom: 48 }}>
+        <img src="images/services-documents.png" alt="Financial documents on a desk" />
         <div className="split-copy">
           <h2>Trusted financial documentation</h2>
           <p>From first submission to recipient verification, the portal keeps every file and status in one place.</p>
@@ -214,7 +225,7 @@ function Services({setPage}) {
         <div className="info-card"><FileCheck2 size={22} color="#1a6dff" /><h3>Document verification</h3><p>Recipients can confirm a reference number on a public verification page.</p></div>
         <div className="info-card"><BarChart3 size={22} color="#1a6dff" /><h3>Application tracking</h3><p>Customers and staff see the same timeline from submitted to completed.</p></div>
       </div>
-      <div style={{textAlign:'center', marginTop:36}}>
+      <div style={{ textAlign: 'center', marginTop: 36 }}>
         <button className="btn primary" onClick={() => setPage('signup')}>Apply Now</button>
       </div>
     </section>
@@ -224,9 +235,9 @@ function Services({setPage}) {
 function FAQ() {
   const items = [
     ['Who can apply?', 'Individuals and businesses can start a Proof of Funds application from the customer portal.'],
-    ['How long does review take?', 'Most applications move from submission to first review within one to three working days in this demo flow.'],
+    ['How long does review take?', 'Applications move through submitted, under review, and processing stages as our team completes verification.'],
     ['How do recipients verify a document?', 'They enter the reference number on the public verification page to confirm authenticity.'],
-    ['Is this a live banking product?', 'No. This is a UI prototype. Production use needs a secure backend, payments, and verified records.']
+    ['Is my data secure?', 'Accounts are authenticated and passwords are never stored in plain text. Documents are only accessible to you and authorised staff.']
   ];
   const [open, setOpen] = useState(0);
   return (
@@ -236,10 +247,10 @@ function FAQ() {
         <p>Quick answers before you start an application.</p>
       </div>
       <div className="faq">
-        {items.map(([q,a], i) => (
+        {items.map(([q, a], i) => (
           <div className="faq-item" key={q}>
-            <button onClick={() => setOpen(open===i ? -1 : i)}>{q} <ChevronDown size={16} /></button>
-            {open===i && <p>{a}</p>}
+            <button onClick={() => setOpen(open === i ? -1 : i)}>{q} <ChevronDown size={16} /></button>
+            {open === i && <p>{a}</p>}
           </div>
         ))}
       </div>
@@ -256,12 +267,12 @@ function Contact() {
       </div>
       <div className="contact-grid">
         <div className="contact-side">
-          <h2 style={{marginTop:0}}>Highlight Consulting</h2>
+          <h2 style={{ marginTop: 0 }}>Highlight Consulting</h2>
           <p>We respond to portal enquiries during business hours.</p>
-          <b>Email</b>
-          <p>hello@highlightconsulting.demo</p>
           <b>Phone</b>
-          <p>+234 800 000 0000</p>
+          <p><a href="tel:+2348039434923">+234 803 943 4923</a></p>
+          <b>Email</b>
+          <p><a href="mailto:Naahmad@highlightconsult.com">Naahmad@highlightconsult.com</a></p>
         </div>
         <div className="card">
           <div className="form-grid">
@@ -278,29 +289,54 @@ function Contact() {
   );
 }
 
-function Signup({setPage}) {
+function Signup({ setPage }) {
+  const { setUser } = useAuth();
+  const [form, setForm] = useState({ fullName: '', email: '', phone: '', password: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  function update(field) {
+    return (e) => setForm({ ...form, [field]: e.target.value });
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      const { user } = await api.register(form);
+      setUser(user);
+      setPage('apply');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="auth-wrap">
-      <form className="auth-form" onSubmit={e => {e.preventDefault(); setPage('apply');}}>
+      <form className="auth-form" onSubmit={submit}>
         <h1>Create Your Account</h1>
         <p>Join our platform to apply for Proof of Funds and track your application.</p>
+        <ErrorBanner message={error} />
         <div className="form-grid">
-          <Field label="Full Name" placeholder="Tolu Adejimi" wide />
-          <Field label="Email Address" placeholder="you@example.com" wide />
-          <Field label="Phone Number" placeholder="+234 801 234 5678" wide />
-          <Field label="Password" type="password" placeholder="Create a password" wide />
+          <Field label="Full Name" placeholder="Your full name" wide value={form.fullName} onChange={update('fullName')} required />
+          <Field label="Email Address" placeholder="you@example.com" wide value={form.email} onChange={update('email')} type="email" required />
+          <Field label="Phone Number" placeholder="+234 801 234 5678" wide value={form.phone} onChange={update('phone')} />
+          <Field label="Password" type="password" placeholder="At least 8 characters" wide value={form.password} onChange={update('password')} required />
         </div>
         <label className="check">
-          <input type="checkbox" defaultChecked />
+          <input type="checkbox" required />
           <span>I agree to the Terms & Conditions and Privacy Policy</span>
         </label>
-        <button className="btn primary block" type="submit">Create Account</button>
-        <p className="muted-link">Already have an account? <button className="btn link" onClick={() => setPage('login')}>Login</button></p>
+        <button className="btn primary block" type="submit" disabled={busy}>{busy ? 'Creating account…' : 'Create Account'}</button>
+        <p className="muted-link">Already have an account? <button type="button" className="btn link" onClick={() => setPage('login')}>Login</button></p>
       </form>
       <aside className="auth-panel">
-        <img src="/images/signup-building.png" alt="Glass tower at night" />
+        <img src="images/signup-building.png" alt="Glass tower at night" />
         <div>
-          <h2>Secure<br/>Simple<br/>Reliable</h2>
+          <h2>Secure<br />Simple<br />Reliable</h2>
           <p>Supporting your global opportunities with trusted financial documentation.</p>
         </div>
       </aside>
@@ -308,25 +344,49 @@ function Signup({setPage}) {
   );
 }
 
-function Login({setPage}) {
+function Login({ setPage }) {
+  const { setUser } = useAuth();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  function update(field) {
+    return (e) => setForm({ ...form, [field]: e.target.value });
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      const { user } = await api.login(form);
+      setUser(user);
+      setPage(user.role === 'admin' ? 'admin' : 'dashboard');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="auth-wrap">
-      <form className="auth-form" onSubmit={e => {e.preventDefault(); setPage('dashboard');}}>
+      <form className="auth-form" onSubmit={submit}>
         <h1>Welcome back</h1>
         <p>Sign in to manage your Proof of Funds applications.</p>
+        <ErrorBanner message={error} />
         <div className="form-grid">
-          <Field label="Email Address" placeholder="tolu@example.com" wide />
-          <Field label="Password" type="password" placeholder="Enter your password" wide />
+          <Field label="Email Address" placeholder="you@example.com" wide value={form.email} onChange={update('email')} type="email" required />
+          <Field label="Password" type="password" placeholder="Enter your password" wide value={form.password} onChange={update('password')} required />
         </div>
-        <div style={{height:22}} />
-        <button className="btn primary block" type="submit">Login</button>
-        <p className="muted-link">New here? <button className="btn link" onClick={() => setPage('signup')}>Create an account</button></p>
-        <p className="muted-link"><button className="btn link" onClick={() => setPage('admin')}>Sign in as admin</button></p>
+        <div style={{ height: 22 }} />
+        <button className="btn primary block" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Login'}</button>
+        <p className="muted-link">New here? <button type="button" className="btn link" onClick={() => setPage('signup')}>Create an account</button></p>
       </form>
       <aside className="auth-panel">
-        <img src="/images/signup-building.png" alt="Glass tower at night" />
+        <img src="images/signup-building.png" alt="Glass tower at night" />
         <div>
-          <h2>Track every<br/>application<br/>in one place</h2>
+          <h2>Track every<br />application<br />in one place</h2>
           <p>Review status, documents, and payment history from your dashboard.</p>
         </div>
       </aside>
@@ -334,58 +394,118 @@ function Login({setPage}) {
   );
 }
 
-function FlowHeader({setPage}) {
+function FlowHeader({ setPage }) {
+  const { user } = useAuth();
   return (
     <header className="flow-header">
       <button onClick={() => setPage('dashboard')}><Brand /></button>
-      <button className="avatar" onClick={() => setPage('dashboard')}>TA</button>
+      <button className="avatar" onClick={() => setPage('dashboard')}>{initials(user?.fullName)}</button>
     </header>
   );
 }
 
-function Stepper({step}) {
+function Stepper({ step }) {
   return (
     <div className="stepper">
-      {steps.map((s, i) => (
+      {STEP_TITLES.map((s, i) => (
         <React.Fragment key={s}>
-          <div className={'step ' + (i<step ? 'done ' : '') + (i===step ? 'current' : '')}>
-            <i>{i<step ? <CheckCircle2 size={14} /> : i+1}</i>
+          <div className={'step ' + (i < step ? 'done ' : '') + (i === step ? 'current' : '')}>
+            <i>{i < step ? <CheckCircle2 size={14} /> : i + 1}</i>
             <span>{s}</span>
           </div>
-          {i<steps.length-1 && <div className={'step-line ' + (i<step ? 'done' : '')} />}
+          {i < STEP_TITLES.length - 1 && <div className={'step-line ' + (i < step ? 'done' : '')} />}
         </React.Fragment>
       ))}
     </div>
   );
 }
 
-function Apply({setPage}) {
+const DOC_SLOTS = [
+  ['passport', 'Passport Photograph', 'JPG, JPEG, PNG (Max 5MB)'],
+  ['id', 'Valid ID (Passport / NIN / Driver’s License)', 'PDF, JPEG, PNG (Max 5MB)'],
+  ['address', 'Proof of Address', 'PDF, JPEG, PNG (Max 5MB)'],
+  ['extra', 'Additional Documents (Optional)', 'PDF, JPEG, PNG (Max 5MB)']
+];
+
+function Apply({ setPage }) {
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
-  const [submitted, setSubmitted] = useState(false);
-  const [pay, setPay] = useState('paystack');
-  const [uploaded, setUploaded] = useState({});
-  const titles = ['Personal Information', 'Application Details', 'Upload Supporting Documents', 'Review & Payment'];
-  const subs = [
-    'Provide your personal details.',
-    'Provide details of your proof of funds request',
-    'Upload the required documents to complete your application.',
-    'Confirm your details and pay to submit your application.'
-  ];
+  const [submitted, setSubmitted] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [files, setFiles] = useState({});
+  const [form, setForm] = useState({
+    fullName: user?.fullName || '',
+    dateOfBirth: '',
+    nationality: '',
+    idType: '',
+    idNumber: '',
+    phone: user?.phone || '',
+    email: user?.email || '',
+    amount: '',
+    currency: 'USD',
+    purpose: '',
+    destination: '',
+    intendedUse: ''
+  });
+
+  function update(field) {
+    return (e) => setForm({ ...form, [field]: e.target.value });
+  }
+
+  function onFileSelected(id) {
+    return (e) => {
+      const file = e.target.files?.[0];
+      if (file) setFiles({ ...files, [id]: file });
+    };
+  }
+
+  async function finalizeSubmit() {
+    setError('');
+    setBusy(true);
+    try {
+      const { application } = await api.createApplication({
+        fullName: form.fullName,
+        dateOfBirth: form.dateOfBirth || null,
+        nationality: form.nationality || null,
+        idType: form.idType || null,
+        idNumber: form.idNumber || null,
+        phone: form.phone || null,
+        email: form.email || null,
+        amount: form.amount.replaceAll(',', ''),
+        currency: form.currency,
+        purpose: form.purpose,
+        destination: form.destination || null,
+        intendedUse: form.intendedUse || null
+      });
+      for (const [docType, file] of Object.entries(files)) {
+        const data = new FormData();
+        data.append('file', file);
+        data.append('docType', docType);
+        await api.uploadDocument(application.id, data);
+      }
+      setSubmitted(application);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (submitted) {
     return (
       <>
         <FlowHeader setPage={setPage} />
         <div className="page narrow">
-          <div className="card" style={{textAlign:'center', padding:'48px 32px'}}>
+          <div className="card" style={{ textAlign: 'center', padding: '48px 32px' }}>
             <div className="success-icon"><CheckCircle2 size={38} /></div>
             <h2>Application Submitted</h2>
             <p className="sub">Your application has been received and is now under review.</p>
-            <div className="fee" style={{justifyContent:'center', gap:24}}>
-              <div><span>Application Reference</span><b>HCS-2026-000185</b></div>
+            <div className="fee" style={{ justifyContent: 'center', gap: 24 }}>
+              <div><span>Application Reference</span><b>{submitted.reference}</b></div>
             </div>
-            <div className="form-actions" style={{justifyContent:'center', border:0}}>
-              <button className="btn primary" onClick={() => setPage('track')}>Track Application</button>
+            <div className="form-actions" style={{ justifyContent: 'center', border: 0 }}>
+              <button className="btn primary" onClick={() => setPage('track:' + submitted.id)}>Track Application</button>
             </div>
           </div>
         </div>
@@ -393,94 +513,94 @@ function Apply({setPage}) {
     );
   }
 
+  const subs = [
+    'Provide your personal details.',
+    'Provide details of your proof of funds request',
+    'Upload the required documents to complete your application.',
+    'Confirm your details and pay to submit your application.'
+  ];
+
   return (
     <>
       <FlowHeader setPage={setPage} />
       <div className="page narrow">
         <Stepper step={step} />
         <div className="card">
-          <h2>{titles[step]}</h2>
+          <h2>{STEP_TITLES[step]}</h2>
           <p className="sub">{subs[step]}</p>
+          <ErrorBanner message={error} />
 
-          {step===0 && (
+          {step === 0 && (
             <div className="form-grid">
-              <Field label="Full Name" value="Tolu Adejimi" />
-              <Field label="Date of Birth" placeholder="dd / mm / yyyy" />
-              <Field label="Nationality" placeholder="Select nationality" options={['Nigerian','Ghanaian','Kenyan','British','Canadian']} />
-              <Field label="ID Type" placeholder="Select ID type" options={['Passport','NIN','Driver’s License']} />
-              <Field label="ID Number" placeholder="Enter ID number" />
-              <Field label="Phone Number" value="+234 801 234 5678" />
-              <Field label="Email Address" value="tolu@example.com" wide />
+              <Field label="Full Name" value={form.fullName} onChange={update('fullName')} required />
+              <Field label="Date of Birth" type="date" value={form.dateOfBirth} onChange={update('dateOfBirth')} />
+              <Field label="Nationality" placeholder="Select nationality" options={['Nigerian', 'Ghanaian', 'Kenyan', 'British', 'Canadian']} value={form.nationality} onChange={update('nationality')} />
+              <Field label="ID Type" placeholder="Select ID type" options={['Passport', 'NIN', 'Driver’s License']} value={form.idType} onChange={update('idType')} />
+              <Field label="ID Number" placeholder="Enter ID number" value={form.idNumber} onChange={update('idNumber')} />
+              <Field label="Phone Number" value={form.phone} onChange={update('phone')} />
+              <Field label="Email Address" value={form.email} onChange={update('email')} wide type="email" />
             </div>
           )}
 
-          {step===1 && (
+          {step === 1 && (
             <div className="form-grid">
-              <Field label="Amount Required" value="100,000" />
-              <Field label="Currency" value="USD" options={['USD','GBP','EUR','CAD','NGN']} />
-              <Field label="Purpose of Funds" placeholder="Select purpose" options={['Study Abroad','Immigration','Business','Travel','Medical']} wide />
-              <Field label="Destination Country / Institution" placeholder="e.g. Canada / University of Toronto" wide />
-              <Field label="Intended Use" placeholder="Briefly explain the purpose of the funds" wide textarea />
+              <Field label="Amount Required" placeholder="e.g. 100,000" value={form.amount} onChange={update('amount')} required />
+              <Field label="Currency" value={form.currency} onChange={update('currency')} options={['USD', 'GBP', 'EUR', 'CAD', 'NGN']} />
+              <Field label="Purpose of Funds" placeholder="Select purpose" options={PURPOSES} value={form.purpose} onChange={update('purpose')} wide required />
+              <Field label="Destination Country / Institution" placeholder="e.g. Canada / University of Toronto" wide value={form.destination} onChange={update('destination')} />
+              <Field label="Intended Use" placeholder="Briefly explain the purpose of the funds" wide textarea value={form.intendedUse} onChange={update('intendedUse')} />
             </div>
           )}
 
-          {step===2 && (
+          {step === 2 && (
             <div className="uploads">
-              {[
-                ['passport','Passport Photograph','JPG, JPEG, PNG (Max 5MB)'],
-                ['id','Valid ID (Passport / NIN / Driver’s License)','PDF, JPEG, PNG (Max 5MB)'],
-                ['address','Proof of Address','PDF, JPEG, PNG (Max 5MB)'],
-                ['extra','Additional Documents (Optional)','PDF, JPEG, PNG (Max 5MB)']
-              ].map(([id, title, hint]) => (
-                <div className={'upload' + (uploaded[id] ? ' done' : '')} key={id}>
-                  <div className="upload-icon">{uploaded[id] ? <CheckCircle2 size={19} /> : <FileText size={19} />}</div>
-                  <div><b>{title}</b><span>{uploaded[id] ? 'File attached' : hint}</span></div>
-                  <button className="btn ghost sm" onClick={() => setUploaded({...uploaded, [id]: true})}>
-                    <Upload size={14} /> {uploaded[id] ? 'Replace' : 'Upload'}
-                  </button>
+              {DOC_SLOTS.map(([id, title, hint]) => (
+                <div className={'upload' + (files[id] ? ' done' : '')} key={id}>
+                  <div className="upload-icon">{files[id] ? <CheckCircle2 size={19} /> : <FileText size={19} />}</div>
+                  <div><b>{title}</b><span>{files[id] ? files[id].name : hint}</span></div>
+                  <label className="btn ghost sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Upload size={14} /> {files[id] ? 'Replace' : 'Upload'}
+                    <input type="file" accept="application/pdf,image/jpeg,image/png" style={{ display: 'none' }} onChange={onFileSelected(id)} />
+                  </label>
                 </div>
               ))}
             </div>
           )}
 
-          {step===3 && (
+          {step === 3 && (
             <div className="review-stack">
               <div className="review-box">
                 <div className="top"><h3>Personal Information</h3><button className="btn link" onClick={() => setStep(0)}><Pencil size={14} /></button></div>
                 <div className="review-grid">
-                  <div><span>Full Name</span><b>Tolu Adejimi</b></div>
-                  <div><span>Email</span><b>tolu@example.com</b></div>
-                  <div><span>Phone</span><b>+234 801 234 5678</b></div>
+                  <div><span>Full Name</span><b>{form.fullName || '—'}</b></div>
+                  <div><span>Email</span><b>{form.email || '—'}</b></div>
+                  <div><span>Phone</span><b>{form.phone || '—'}</b></div>
                 </div>
               </div>
               <div className="review-box">
                 <div className="top"><h3>Application Details</h3><button className="btn link" onClick={() => setStep(1)}><Pencil size={14} /></button></div>
                 <div className="review-grid">
-                  <div><span>Amount</span><b>USD 100,000</b></div>
-                  <div><span>Purpose</span><b>Study Abroad</b></div>
-                  <div><span>Destination</span><b>Canada / University of Toronto</b></div>
-                  <div><span>Intended Use</span><b>Tuition and living expenses</b></div>
+                  <div><span>Amount</span><b>{form.currency} {form.amount || '—'}</b></div>
+                  <div><span>Purpose</span><b>{form.purpose || '—'}</b></div>
+                  <div><span>Destination</span><b>{form.destination || '—'}</b></div>
+                  <div><span>Intended Use</span><b>{form.intendedUse || '—'}</b></div>
                 </div>
               </div>
               <div className="fee">
-                <div><b>Application Fee</b><span>Pay with Paystack or Flutterwave</span></div>
-                <strong>₦50,000</strong>
-              </div>
-              <div className="pay-methods">
-                <button className={'pay-method' + (pay==='paystack' ? ' active' : '')} onClick={() => setPay('paystack')}>
-                  <b>Paystack</b><span>Card, bank, USSD</span>
-                </button>
-                <button className={'pay-method' + (pay==='flutterwave' ? ' active' : '')} onClick={() => setPay('flutterwave')}>
-                  <b>Flutterwave</b><span>Card, transfer, wallet</span>
-                </button>
+                <div><b>Application Fee</b><span>Payment collection is coming soon</span></div>
+                <strong>—</strong>
               </div>
             </div>
           )}
 
           <div className="form-actions">
-            {step>0 && <button className="btn ghost" onClick={() => setStep(step-1)}>Back</button>}
-            <button className="btn primary" onClick={() => step===3 ? setSubmitted(true) : setStep(step+1)}>
-              {step===3 ? 'Pay and Submit' : 'Next Step'} {step<3 && <ChevronRight size={16} />}
+            {step > 0 && <button className="btn ghost" onClick={() => setStep(step - 1)}>Back</button>}
+            <button
+              className="btn primary"
+              disabled={busy || (step === 1 && (!form.amount || !form.purpose)) || (step === 0 && !form.fullName)}
+              onClick={() => (step === 3 ? finalizeSubmit() : setStep(step + 1))}
+            >
+              {busy ? 'Submitting…' : step === 3 ? 'Submit Application' : 'Next Step'} {step < 3 && <ChevronRight size={16} />}
             </button>
           </div>
         </div>
@@ -489,75 +609,120 @@ function Apply({setPage}) {
   );
 }
 
-function CustomerLayout({active, setPage, children}) {
+function CustomerLayout({ active, setPage, children }) {
+  const { user, logout } = useAuth();
   const items = [
-    ['dashboard','Dashboard', LayoutDashboard],
-    ['applications','My Applications', FileText],
-    ['payments','Payments', CreditCard],
-    ['documents','Documents', FileText],
-    ['profile','Profile', UserRound],
-    ['support','Support', LifeBuoy]
+    ['dashboard', 'Dashboard', LayoutDashboard],
+    ['applications', 'My Applications', FileText],
+    ['payments', 'Payments', CreditCard],
+    ['documents', 'Documents', FileText],
+    ['profile', 'Profile', UserRound],
+    ['support', 'Support', LifeBuoy]
   ];
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <button onClick={() => setPage('dashboard')}><Brand light /></button>
         {items.map(([id, label, Icon]) => (
-          <button key={id} className={active===id ? 'active' : ''} onClick={() => setPage(id)}>
+          <button key={id} className={active === id ? 'active' : ''} onClick={() => setPage(id)}>
             <Icon size={18} />{label}
           </button>
         ))}
-        <button className="logout" onClick={() => setPage('home')}><LogOut size={18} />Logout</button>
+        <button className="logout" onClick={async () => { await logout(); setPage('home'); }}><LogOut size={18} />Logout</button>
       </aside>
       <div className="app-main">
-        <div className="app-top"><div className="avatar">TA</div></div>
+        <div className="app-top"><div className="avatar">{initials(user?.fullName)}</div></div>
         {children}
       </div>
     </div>
   );
 }
 
-function Dashboard({setPage}) {
+function Dashboard({ setPage }) {
+  const { user } = useAuth();
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.myApplications()
+      .then((data) => setApplications(data.applications))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const counts = applications.reduce(
+    (acc, a) => {
+      acc.total += 1;
+      if (['submitted', 'under_review', 'needs_information', 'processing'].includes(a.status)) acc.inProgress += 1;
+      if (a.status === 'approved' || a.status === 'completed') acc.approved += 1;
+      if (a.status === 'rejected') acc.rejected += 1;
+      return acc;
+    },
+    { total: 0, inProgress: 0, approved: 0, rejected: 0 }
+  );
+
   return (
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Welcome, Tolu</h1>
+          <h1>Welcome{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}</h1>
           <p>Track and manage your Proof of Funds applications.</p>
         </div>
         <button className="btn primary" onClick={() => setPage('apply')}>Apply Now</button>
       </div>
       <div className="stats">
-        <div className="stat"><b>1</b><span>Total Applications</span></div>
-        <div className="stat warn"><b>1</b><span>In Progress</span></div>
-        <div className="stat ok"><b>0</b><span>Approved</span></div>
-        <div className="stat bad"><b>0</b><span>Rejected</span></div>
+        <div className="stat"><b>{counts.total}</b><span>Total Applications</span></div>
+        <div className="stat warn"><b>{counts.inProgress}</b><span>In Progress</span></div>
+        <div className="stat ok"><b>{counts.approved}</b><span>Approved</span></div>
+        <div className="stat bad"><b>{counts.rejected}</b><span>Rejected</span></div>
       </div>
       <section className="card">
         <div className="card-head">
           <div><h2>Recent Applications</h2></div>
           <button className="btn link" onClick={() => setPage('applications')}>View All <ChevronRight size={15} /></button>
         </div>
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Ref. Number</th><th>Amount</th><th>Purpose</th><th>Status</th><th>Date</th><th /></tr></thead>
-            <tbody>
-              {apps.map(a => (
-                <tr key={a.ref}>
-                  <td><b>{a.ref}</b></td><td>{a.amount}</td><td>{a.purpose}</td>
-                  <td><Status>{a.status}</Status></td><td>{a.date}</td>
-                  <td><button className="round" onClick={() => setPage('track')}><Eye size={16} /></button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ErrorBanner message={error} />
+        {loading ? (
+          <EmptyState text="Loading applications…" />
+        ) : applications.length === 0 ? (
+          <EmptyState text="You haven't submitted an application yet." />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Ref. Number</th><th>Amount</th><th>Purpose</th><th>Status</th><th>Date</th><th /></tr></thead>
+              <tbody>
+                {applications.slice(0, 5).map((a) => (
+                  <tr key={a.id}>
+                    <td><b>{a.reference}</b></td><td>{a.currency} {a.amount.toLocaleString()}</td><td>{a.purpose}</td>
+                    <td><Status>{a.status}</Status></td><td>{new Date(a.createdAt).toLocaleDateString()}</td>
+                    <td><button className="btn ghost sm" onClick={() => setPage('track:' + a.id)}>View</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );
 }
 
-function Applications({setPage}) {
+function Applications({ setPage }) {
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    api.myApplications()
+      .then((data) => setApplications(data.applications))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = applications.filter((a) => a.reference.toLowerCase().includes(search.toLowerCase()));
+
   return (
     <div className="page">
       <div className="page-head">
@@ -566,61 +731,84 @@ function Applications({setPage}) {
       </div>
       <div className="card">
         <div className="filters">
-          <div className="search"><Search size={16} /><input placeholder="Search reference number..." /></div>
-          <button className="btn ghost">All Statuses</button>
+          <div className="search"><Search size={16} /><input placeholder="Search reference number..." value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         </div>
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Reference</th><th>Amount</th><th>Destination</th><th>Status</th><th>Submitted</th><th /></tr></thead>
-            <tbody>
-              {apps.map(a => (
-                <tr key={a.ref}>
-                  <td><b>{a.ref}</b></td><td>{a.amount}</td><td>{a.destination}</td>
-                  <td><Status>{a.status}</Status></td><td>{a.date}</td>
-                  <td><button className="btn ghost sm" onClick={() => setPage('track')}>View</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ErrorBanner message={error} />
+        {loading ? (
+          <EmptyState text="Loading applications…" />
+        ) : filtered.length === 0 ? (
+          <EmptyState text="No applications found." />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Reference</th><th>Amount</th><th>Destination</th><th>Status</th><th>Submitted</th><th /></tr></thead>
+              <tbody>
+                {filtered.map((a) => (
+                  <tr key={a.id}>
+                    <td><b>{a.reference}</b></td><td>{a.currency} {a.amount.toLocaleString()}</td><td>{a.destination || '—'}</td>
+                    <td><Status>{a.status}</Status></td><td>{new Date(a.createdAt).toLocaleDateString()}</td>
+                    <td><button className="btn ghost sm" onClick={() => setPage('track:' + a.id)}>View</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function SimplePanel({title, text}) {
+function SimplePanel({ title, text }) {
   return (
     <div className="page">
       <div className="page-head"><div><h1>{title}</h1><p>{text}</p></div></div>
-      <div className="card"><p className="sub" style={{margin:0}}>This section is part of the portal prototype and will connect to live records in production.</p></div>
+      <div className="card"><EmptyState text="Nothing here yet." /></div>
     </div>
   );
 }
 
-function Track({setPage}) {
+function Track({ setPage, applicationId }) {
+  const [application, setApplication] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!applicationId) return;
+    api.getApplication(applicationId)
+      .then((data) => { setApplication(data.application); setEvents(data.events); })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [applicationId]);
+
   return (
     <>
       <FlowHeader setPage={setPage} />
       <div className="page narrow">
         <div className="page-head">
-          <div><h1>Application Timeline</h1><p>HCS-2026-000184</p></div>
-          <Status>Under Review</Status>
+          <div><h1>Application Timeline</h1><p>{application?.reference || ''}</p></div>
+          {application && <Status>{application.status}</Status>}
         </div>
-        <div className="card timeline">
-          <Timeline done title="Application Submitted" date="13 Sep 2026, 10:24 AM" text="Your application has been received." />
-          <Timeline current title="Under Review" date="13 Sep 2026, 02:15 PM" text="Our team is reviewing your documents." />
-          <Timeline title="Additional Information" text="Pending" />
-          <Timeline title="Processing" text="Pending" />
-          <Timeline title="Approved" text="Pending" />
-          <Timeline title="Completed" text="Pending" />
-        </div>
-        <div className="notice"><Bell size={18} /><span>You will be notified via email/SMS at every stage.</span></div>
+        <ErrorBanner message={error} />
+        {loading ? (
+          <div className="card"><EmptyState text="Loading application…" /></div>
+        ) : !application ? (
+          <div className="card"><EmptyState text="Application not found." /></div>
+        ) : (
+          <div className="card timeline">
+            {events.map((ev, i) => (
+              <Timeline key={i} done title={STATUS_LABELS[ev.status] || ev.status} date={new Date(ev.created_at).toLocaleString()} text={ev.note || ''} />
+            ))}
+          </div>
+        )}
+        <div className="notice"><Bell size={18} /><span>You will be notified at every stage of your application.</span></div>
       </div>
     </>
   );
 }
 
-function Timeline({done, current, title, date, text}) {
+function Timeline({ done, current, title, date, text }) {
   return (
     <div className="timeline-row">
       <div className={'dot ' + (done ? 'done' : '') + (current ? ' current' : '')}>
@@ -631,137 +819,286 @@ function Timeline({done, current, title, date, text}) {
   );
 }
 
-function AdminLayout({active, setPage, children}) {
+function AdminLayout({ active, setPage, children }) {
+  const { user, logout } = useAuth();
   const items = [
-    ['admin','Dashboard', LayoutDashboard],
-    ['admin-apps','Applications', FileText],
-    ['admin-customers','Customers', Users],
-    ['admin-payments','Payments', CreditCard],
-    ['admin-docs','Documents', FileText],
-    ['admin-staff','Staff', Users],
-    ['admin-settings','Settings', Settings]
+    ['admin', 'Dashboard', LayoutDashboard],
+    ['admin-apps', 'Applications', FileText],
+    ['admin-customers', 'Customers', Users],
+    ['admin-payments', 'Payments', CreditCard],
+    ['admin-docs', 'Documents', FileText],
+    ['admin-staff', 'Staff', Users],
+    ['admin-settings', 'Settings', Settings]
   ];
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <button onClick={() => setPage('admin')}><Brand light /></button>
         {items.map(([id, label, Icon]) => (
-          <button key={id} className={active===id ? 'active' : ''} onClick={() => setPage(id==='admin-apps' ? 'admin-review' : id)}>
+          <button key={id} className={active === id ? 'active' : ''} onClick={() => setPage(id === 'admin-apps' ? 'admin-review' : id)}>
             <Icon size={18} />{label}
           </button>
         ))}
-        <button className="logout" onClick={() => setPage('home')}><LogOut size={18} />Logout</button>
+        <button className="logout" onClick={async () => { await logout(); setPage('home'); }}><LogOut size={18} />Logout</button>
       </aside>
       <div className="app-main">
-        <div className="app-top"><div className="avatar">AD</div></div>
+        <div className="app-top"><div className="avatar">{initials(user?.fullName)}</div></div>
         {children}
       </div>
     </div>
   );
 }
 
-function AdminHome({setPage}) {
+function AdminHome({ setPage }) {
+  const [stats, setStats] = useState({ byStatus: [], monthly: [] });
+  const [applications, setApplications] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    Promise.all([api.adminStats(), api.adminListApplications()])
+      .then(([statsData, listData]) => { setStats(statsData); setApplications(listData.applications); })
+      .catch((err) => setError(err.message));
+  }, []);
+
+  const countFor = (status) => stats.byStatus.find((s) => s.status === status)?.count || 0;
+  const total = stats.byStatus.reduce((sum, s) => sum + s.count, 0);
+  const maxMonthly = Math.max(1, ...stats.monthly.map((m) => m.count));
+
   return (
     <div className="page">
       <div className="page-head">
         <div><h1>Admin Dashboard</h1><p>Overview of applications and system activity.</p></div>
-        <button className="btn ghost">Last 30 Days</button>
       </div>
+      <ErrorBanner message={error} />
       <div className="stats">
-        <div className="stat"><b>56</b><span>Total Applications</span></div>
-        <div className="stat warn"><b>18</b><span>Under Review</span></div>
-        <div className="stat ok"><b>32</b><span>Approved</span></div>
-        <div className="stat bad"><b>6</b><span>Rejected</span></div>
+        <div className="stat"><b>{total}</b><span>Total Applications</span></div>
+        <div className="stat warn"><b>{countFor('under_review')}</b><span>Under Review</span></div>
+        <div className="stat ok"><b>{countFor('approved') + countFor('completed')}</b><span>Approved</span></div>
+        <div className="stat bad"><b>{countFor('rejected')}</b><span>Rejected</span></div>
       </div>
       <div className="admin-grid">
         <div className="card">
           <div className="card-head"><div><h2>Applications Overview</h2><p>Monthly application volume.</p></div><BarChart3 size={18} /></div>
-          <div className="bars">
-            {[35,48,42,65,55,72,61,78,88].map((h,i) => (
-              <div key={i}><div style={{height:h+'%'}} /><span>{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'][i]}</span></div>
-            ))}
-          </div>
+          {stats.monthly.length === 0 ? (
+            <EmptyState text="No application activity yet." />
+          ) : (
+            <div className="bars">
+              {stats.monthly.map((m, i) => (
+                <div key={i}><div style={{ height: (m.count / maxMonthly) * 100 + '%' }} /><span>{m.month}</span></div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="card">
           <div className="card-head"><div><h2>Recent Applications</h2></div></div>
-          {apps.map(a => (
-            <button className="mini-row" key={a.ref} onClick={() => setPage('admin-review')} style={{width:'100%'}}>
-              <div><b>{a.ref}</b><span>{a.name} · {a.amount}</span></div>
-              <Status>{a.status}</Status>
-            </button>
-          ))}
+          {applications.length === 0 ? (
+            <EmptyState text="No applications submitted yet." />
+          ) : (
+            applications.slice(0, 6).map((a) => (
+              <button className="mini-row" key={a.id} onClick={() => setPage('admin-review:' + a.id)} style={{ width: '100%' }}>
+                <div><b>{a.reference}</b><span>{a.fullName} · {a.currency} {a.amount.toLocaleString()}</span></div>
+                <Status>{a.status}</Status>
+              </button>
+            ))
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function AdminReview() {
+function AdminApplicationsList({ setPage }) {
+  const [applications, setApplications] = useState([]);
+  const [search, setSearch] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.adminListApplications()
+      .then((data) => setApplications(data.applications))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = applications.filter((a) => a.reference.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="page">
+      <div className="page-head"><div><h1>Applications</h1><p>All Proof of Funds applications.</p></div></div>
+      <div className="card">
+        <div className="filters">
+          <div className="search"><Search size={16} /><input placeholder="Search reference number..." value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+        </div>
+        <ErrorBanner message={error} />
+        {loading ? (
+          <EmptyState text="Loading applications…" />
+        ) : filtered.length === 0 ? (
+          <EmptyState text="No applications found." />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Reference</th><th>Applicant</th><th>Amount</th><th>Status</th><th>Submitted</th><th /></tr></thead>
+              <tbody>
+                {filtered.map((a) => (
+                  <tr key={a.id}>
+                    <td><b>{a.reference}</b></td><td>{a.fullName}</td><td>{a.currency} {a.amount.toLocaleString()}</td>
+                    <td><Status>{a.status}</Status></td><td>{new Date(a.createdAt).toLocaleDateString()}</td>
+                    <td><button className="btn ghost sm" onClick={() => setPage('admin-review:' + a.id)}>View</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const STATUS_OPTIONS = Object.keys(STATUS_LABELS);
+
+function AdminReview({ applicationId, setPage }) {
   const [tab, setTab] = useState('Overview');
-  const a = apps[0];
+  const [application, setApplication] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [nextStatus, setNextStatus] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  function load() {
+    if (!applicationId) return;
+    api.getApplication(applicationId)
+      .then((data) => { setApplication(data.application); setEvents(data.events); setNextStatus(data.application.status); })
+      .catch((err) => setError(err.message));
+    api.listDocuments(applicationId).then((data) => setDocuments(data.documents)).catch(() => {});
+  }
+
+  useEffect(load, [applicationId]);
+
+  async function updateStatus() {
+    setBusy(true);
+    setError('');
+    try {
+      await api.adminUpdateStatus(applicationId, { status: nextStatus });
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!applicationId) {
+    return (
+      <div className="page">
+        <div className="page-head"><div><h1>Application Details</h1></div></div>
+        <div className="card"><EmptyState text="Select an application from the list to review it." /></div>
+        <button className="btn ghost" style={{ marginTop: 16 }} onClick={() => setPage('admin-review')}>Back to applications</button>
+      </div>
+    );
+  }
+
+  if (!application) {
+    return <div className="page"><ErrorBanner message={error} /><EmptyState text="Loading application…" /></div>;
+  }
+
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1>Application Details</h1><p>{a.ref}</p></div>
-        <button className="btn primary">Update Status</button>
+        <div><h1>Application Details</h1><p>{application.reference}</p></div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <select value={nextStatus} onChange={(e) => setNextStatus(e.target.value)}>
+            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+          </select>
+          <button className="btn primary" disabled={busy || nextStatus === application.status} onClick={updateStatus}>Update Status</button>
+        </div>
       </div>
+      <ErrorBanner message={error} />
       <div className="card">
         <div className="tabs">
-          {['Overview','Documents','Notes','Audit Log'].map(t => (
-            <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>
+          {['Overview', 'Documents', 'Audit Log'].map((t) => (
+            <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>
           ))}
         </div>
-        {tab==='Overview' && (
+        {tab === 'Overview' && (
           <div className="detail-grid">
-            <div><span>Reference Number</span><b>{a.ref}</b></div>
-            <div><span>Applicant</span><b>{a.name}</b></div>
-            <div><span>Email</span><b>{a.email}</b></div>
-            <div><span>Phone</span><b>{a.phone}</b></div>
-            <div><span>Amount</span><b>{a.amount}</b></div>
-            <div><span>Purpose</span><b>{a.purpose}</b></div>
-            <div><span>Destination</span><b>{a.destination}</b></div>
-            <div><span>Status</span><b>{a.status}</b></div>
+            <div><span>Reference Number</span><b>{application.reference}</b></div>
+            <div><span>Applicant</span><b>{application.fullName}</b></div>
+            <div><span>Email</span><b>{application.email || '—'}</b></div>
+            <div><span>Phone</span><b>{application.phone || '—'}</b></div>
+            <div><span>Amount</span><b>{application.currency} {application.amount.toLocaleString()}</b></div>
+            <div><span>Purpose</span><b>{application.purpose}</b></div>
+            <div><span>Destination</span><b>{application.destination || '—'}</b></div>
+            <div><span>Status</span><b>{STATUS_LABELS[application.status]}</b></div>
           </div>
         )}
-        {tab==='Documents' && <p className="sub">Passport photograph, valid ID, and proof of address are available for authorised review.</p>}
-        {tab==='Notes' && <p className="sub">No internal notes have been added yet.</p>}
-        {tab==='Audit Log' && <p className="sub">Application created 13 Sep 2026 · Moved to Under Review 13 Sep 2026.</p>}
+        {tab === 'Documents' && (
+          documents.length === 0
+            ? <EmptyState text="No documents uploaded yet." />
+            : <ul>{documents.map((d) => <li key={d.id}>{d.doc_type}: {d.original_name}</li>)}</ul>
+        )}
+        {tab === 'Audit Log' && (
+          events.length === 0
+            ? <EmptyState text="No activity recorded yet." />
+            : events.map((ev, i) => <p className="sub" key={i}>{new Date(ev.created_at).toLocaleString()} — {STATUS_LABELS[ev.status] || ev.status}{ev.note ? `: ${ev.note}` : ''}</p>)
+        )}
       </div>
     </div>
   );
 }
 
-function Verify({setPage}) {
-  const [verified, setVerified] = useState(false);
+function Verify({ setPage }) {
+  const [reference, setReference] = useState('');
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    setResult(null);
+    try {
+      const data = await api.verify(reference);
+      setResult(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <PublicHeader page="verify" setPage={setPage} />
       <div className="verify-page">
         <div className="verify-card card">
-          {!verified ? (
-            <>
+          {!result ? (
+            <form onSubmit={submit}>
               <Brand />
               <h1>Verify Proof of Funds Document</h1>
               <p>Enter the reference number to verify the authenticity of a document.</p>
+              <ErrorBanner message={error} />
               <div className="verify-input">
-                <input defaultValue="HCS-2026-000184" placeholder="e.g. HCS-2026-000184" />
-                <button className="btn primary" onClick={() => setVerified(true)}>Verify</button>
+                <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. HCS-2026-000001" required />
+                <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Checking…' : 'Verify'}</button>
               </div>
-            </>
+            </form>
           ) : (
             <>
               <div className="success-icon"><CheckCircle2 size={38} /></div>
               <h1>Document Verified</h1>
               <div className="verify-details">
-                <div className="verify-row"><span>Reference Number</span><b>HCS-2026-000184</b></div>
-                <div className="verify-row"><span>Applicant Name</span><b>T*** Adejimi</b></div>
-                <div className="verify-row"><span>Amount</span><b>USD 100,000</b></div>
-                <div className="verify-row"><span>Purpose</span><b>Study Abroad</b></div>
-                <div className="verify-row"><span>Issue Date</span><b>13 Sep 2026</b></div>
-                <div className="verify-row"><span>Status</span><Status>Valid</Status></div>
+                <div className="verify-row"><span>Reference Number</span><b>{result.reference}</b></div>
+                <div className="verify-row"><span>Applicant Name</span><b>{result.applicantName}</b></div>
+                <div className="verify-row"><span>Amount</span><b>{result.currency} {result.amount.toLocaleString()}</b></div>
+                <div className="verify-row"><span>Purpose</span><b>{result.purpose}</b></div>
+                <div className="verify-row"><span>Issue Date</span><b>{new Date(result.issueDate).toLocaleDateString()}</b></div>
+                <div className="verify-row"><span>Status</span><Status>{result.status}</Status></div>
               </div>
               <p className="sub">This document is a genuine record from Highlight Consulting Services Limited.</p>
-              <button className="btn ghost"><Download size={16} /> Download Verification</button>
+              <button className="btn ghost" onClick={() => setResult(null)}>Verify another</button>
             </>
           )}
         </div>
@@ -770,52 +1107,78 @@ function Verify({setPage}) {
   );
 }
 
-function App() {
+function AppInner() {
+  const { user, initializing } = useAuth();
   const [page, setPage] = useState('home');
-  const customer = ['dashboard','applications','payments','documents','profile','support'];
-  const adminPages = ['admin','admin-review','admin-customers','admin-payments','admin-docs','admin-staff','admin-settings'];
 
-  if (page==='signup') return <><PublicHeader page={page} setPage={setPage} /><Signup setPage={setPage} /></>;
-  if (page==='login') return <><PublicHeader page={page} setPage={setPage} /><Login setPage={setPage} /></>;
-  if (page==='apply') return <Apply setPage={setPage} />;
-  if (page==='track') return <Track setPage={setPage} />;
-  if (page==='verify') return <Verify setPage={setPage} />;
+  if (initializing) {
+    return <div className="page"><EmptyState text="Loading…" /></div>;
+  }
 
-  if (customer.includes(page)) {
+  const customerPages = ['dashboard', 'applications', 'payments', 'documents', 'profile', 'support'];
+  const adminPageIds = ['admin', 'admin-customers', 'admin-payments', 'admin-docs', 'admin-staff', 'admin-settings'];
+
+  const [base, param] = page.split(':');
+
+  if (base === 'signup') return <><PublicHeader page={page} setPage={setPage} /><Signup setPage={setPage} /></>;
+  if (base === 'login') return <><PublicHeader page={page} setPage={setPage} /><Login setPage={setPage} /></>;
+  if (base === 'verify') return <Verify setPage={setPage} />;
+
+  if (base === 'apply') {
+    if (!user) return <><PublicHeader page={page} setPage={setPage} /><Login setPage={setPage} /></>;
+    return <Apply setPage={setPage} />;
+  }
+  if (base === 'track') {
+    if (!user) return <><PublicHeader page={page} setPage={setPage} /><Login setPage={setPage} /></>;
+    return <Track setPage={setPage} applicationId={param} />;
+  }
+
+  if (customerPages.includes(base)) {
+    if (!user) return <><PublicHeader page={page} setPage={setPage} /><Login setPage={setPage} /></>;
     return (
-      <CustomerLayout active={page} setPage={setPage}>
-        {page==='dashboard' && <Dashboard setPage={setPage} />}
-        {page==='applications' && <Applications setPage={setPage} />}
-        {page==='payments' && <SimplePanel title="Payments" text="Application fees and receipts." />}
-        {page==='documents' && <SimplePanel title="Documents" text="Files attached to your applications." />}
-        {page==='profile' && <SimplePanel title="Profile" text="Your contact and identity details." />}
-        {page==='support' && <SimplePanel title="Support" text="Get help with an application." />}
+      <CustomerLayout active={base} setPage={setPage}>
+        {base === 'dashboard' && <Dashboard setPage={setPage} />}
+        {base === 'applications' && <Applications setPage={setPage} />}
+        {base === 'payments' && <SimplePanel title="Payments" text="Application fees and receipts." />}
+        {base === 'documents' && <SimplePanel title="Documents" text="Files attached to your applications." />}
+        {base === 'profile' && <SimplePanel title="Profile" text="Your contact and identity details." />}
+        {base === 'support' && <SimplePanel title="Support" text="Get help with an application." />}
       </CustomerLayout>
     );
   }
 
-  if (adminPages.includes(page)) {
+  if (base === 'admin-review' || adminPageIds.includes(base)) {
+    if (!user || user.role !== 'admin') return <><PublicHeader page={page} setPage={setPage} /><Login setPage={setPage} /></>;
     return (
-      <AdminLayout active={page==='admin-review' ? 'admin-apps' : page} setPage={setPage}>
-        {page==='admin' && <AdminHome setPage={setPage} />}
-        {page==='admin-review' && <AdminReview />}
-        {page==='admin-customers' && <SimplePanel title="Customers" text="Registered portal users." />}
-        {page==='admin-payments' && <SimplePanel title="Payments" text="Fee collection overview." />}
-        {page==='admin-docs' && <SimplePanel title="Documents" text="Files submitted for review." />}
-        {page==='admin-staff' && <SimplePanel title="Staff" text="Internal user access." />}
-        {page==='admin-settings' && <SimplePanel title="Settings" text="Portal configuration." />}
+      <AdminLayout active={base === 'admin-review' ? 'admin-apps' : base} setPage={setPage}>
+        {base === 'admin' && <AdminHome setPage={setPage} />}
+        {base === 'admin-review' && !param && <AdminApplicationsList setPage={setPage} />}
+        {base === 'admin-review' && param && <AdminReview applicationId={param} setPage={setPage} />}
+        {base === 'admin-customers' && <SimplePanel title="Customers" text="Registered portal users." />}
+        {base === 'admin-payments' && <SimplePanel title="Payments" text="Fee collection overview." />}
+        {base === 'admin-docs' && <SimplePanel title="Documents" text="Files submitted for review." />}
+        {base === 'admin-staff' && <SimplePanel title="Staff" text="Internal user access." />}
+        {base === 'admin-settings' && <SimplePanel title="Settings" text="Portal configuration." />}
       </AdminLayout>
     );
   }
 
   return (
-    <PublicShell page={page} setPage={setPage}>
-      {page==='home' && <Home setPage={setPage} />}
-      {page==='about' && <About setPage={setPage} />}
-      {page==='services' && <Services setPage={setPage} />}
-      {page==='faq' && <FAQ />}
-      {page==='contact' && <Contact />}
+    <PublicShell page={base} setPage={setPage}>
+      {base === 'home' && <Home setPage={setPage} />}
+      {base === 'about' && <About setPage={setPage} />}
+      {base === 'services' && <Services setPage={setPage} />}
+      {base === 'faq' && <FAQ />}
+      {base === 'contact' && <Contact />}
     </PublicShell>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }
 
