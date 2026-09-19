@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+  <g transform="translate(100 100)">
+    <g transform="rotate(-18)">
+      <circle cx="0" cy="-68" r="12.2" fill="#C9A227"/>
+      <path d="M-16-54c8-18 24-18 32 0 10 22-2 42-16 54-14-12-26-32-16-54z" fill="#C9A227"/>
+    </g>
+    <g transform="rotate(54)">
+      <circle cx="0" cy="-68" r="12.2" fill="#E24B3A"/>
+      <path d="M-16-54c8-18 24-18 32 0 10 22-2 42-16 54-14-12-26-32-16-54z" fill="#E24B3A"/>
+    </g>
+    <g transform="rotate(126)">
+      <circle cx="0" cy="-68" r="12.2" fill="#2EB5C9"/>
+      <path d="M-16-54c8-18 24-18 32 0 10 22-2 42-16 54-14-12-26-32-16-54z" fill="#2EB5C9"/>
+    </g>
+    <g transform="rotate(198)">
+      <circle cx="0" cy="-68" r="12.2" fill="#1A1A1A"/>
+      <path d="M-16-54c8-18 24-18 32 0 10 22-2 42-16 54-14-12-26-32-16-54z" fill="#1A1A1A"/>
+    </g>
+    <g transform="rotate(270)">
+      <circle cx="0" cy="-68" r="12.2" fill="#B5B5B5"/>
+      <path d="M-16-54c8-18 24-18 32 0 10 22-2 42-16 54-14-12-26-32-16-54z" fill="#B5B5B5"/>
+    </g>
+  </g>
+</svg>
